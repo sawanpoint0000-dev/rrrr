@@ -15,7 +15,6 @@
     }
     
     * { margin:0; padding:0; box-sizing:border-box; }
-    
     body {
         font-family: 'Segoe UI', system-ui, sans-serif;
         background: linear-gradient(135deg, #0a0a14 0%, #1a1a2e 100%);
@@ -33,12 +32,7 @@
     }
     .subtitle { color: #888; font-size: 15px; }
 
-    .controls {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        margin-bottom: 25px;
-    }
+    .controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 25px; }
     
     button {
         padding: 14px 22px;
@@ -66,7 +60,6 @@
         color: white;
         border: 1px solid var(--border);
     }
-    .btn-secondary:hover { background: rgba(0, 240, 255, 0.2); }
 
     .stats-grid {
         display: grid;
@@ -101,14 +94,10 @@
         border-radius: 20px;
         padding: 20px;
         position: relative;
-        transition: all 0.4s;
     }
-    .numbox:hover { transform: translateY(-4px); }
-    .numbox.permanent { border-color: var(--primary); box-shadow: 0 0 25px rgba(0,255,157,0.3); }
+    .numbox.permanent { border-color: var(--primary); }
 
-    .top-row { display: flex; align-items: center; gap: 15px; margin-bottom: 15px; }
     .phone10 {
-        flex: 1;
         font-size: 24px;
         font-weight: 700;
         color: #a5d8ff;
@@ -137,16 +126,9 @@
         background: rgba(30,30,45,0.9);
         border-radius: 10px;
     }
-    .otp.success { color: #00ff9d; background: rgba(0,255,157,0.1); }
+    .otp.success { color: #00ff9d; }
 
-    .timer {
-        position: absolute;
-        top: 20px;
-        right: 22px;
-        font-size: 15px;
-        font-weight: 600;
-        color: #ff6d00;
-    }
+    .timer { position: absolute; top: 20px; right: 22px; font-size: 15px; font-weight: 600; color: #ff6d00; }
     .permanent .timer { color: var(--primary); }
 
     .api-tag {
@@ -158,31 +140,38 @@
         border-radius: 30px;
         color: white;
     }
-    .api1 { background: #00695c; }
-    .api2 { background: #c2185b; }
+    .status-log {
+        background: #1a1a2e;
+        padding: 12px;
+        border-radius: 10px;
+        font-size: 13px;
+        margin-top: 15px;
+        max-height: 150px;
+        overflow-y: auto;
+    }
 </style>
 </head>
 <body>
 
     <div class="header">
         <h1>HACKER PANEL 2.0</h1>
-        <p class="subtitle">Professional Virtual Number + Auto OTP System</p>
+        <p class="subtitle">Global Sync • Professional System</p>
     </div>
 
     <div class="controls">
         <button id="toggleBtn">START PANEL</button>
         <button id="pauseBtn" class="btn-secondary">PAUSE</button>
-        <button id="exportBtn" class="btn-secondary">Export TXT</button>
+        <button id="exportBtn" class="btn-secondary">Export</button>
         <button id="deleteAllBtn" class="btn-secondary">Delete All</button>
     </div>
 
     <div class="stats-grid">
         <div class="stat-card">
-            <div>Total Numbers</div>
+            <div>Total</div>
             <h2 id="total" style="color:#00f0ff;">0</h2>
         </div>
         <div class="stat-card">
-            <div>OTP Received</div>
+            <div>OTP</div>
             <h2 id="success" style="color:#00ff9d;">0</h2>
         </div>
         <div class="stat-card">
@@ -191,14 +180,17 @@
         </div>
     </div>
 
-    <input type="text" id="search" placeholder="🔍 Search phone number...">
+    <input type="text" id="search" placeholder="🔍 Search number...">
 
     <div id="numbers"></div>
+
+    <div class="status-log" id="log">Waiting for panel to start...</div>
 
 <script>
 // ================== CONFIG ==================
 const API1 = "https://vertul.sawanpoint0000.workers.dev";
 const API2 = "https://vertul.sawanenter7209.workers.dev/";
+
 const SERVICE = "swr";
 const COUNTRY = "22";
 const MAX_PRICE = "80";
@@ -208,229 +200,139 @@ let numbersData = JSON.parse(localStorage.getItem("numbers_data") || "[]");
 let isOn = localStorage.getItem("panel_state") === "true";
 let isPaused = false;
 let interval = null;
-let requestRunning = false;
 
 const toggleBtn = document.getElementById("toggleBtn");
-const pauseBtn = document.getElementById("pauseBtn");
-const exportBtn = document.getElementById("exportBtn");
-const deleteAllBtn = document.getElementById("deleteAllBtn");
-const searchInput = document.getElementById("search");
-const numbersDiv = document.getElementById("numbers");
+const logDiv = document.getElementById("log");
 
-// ================== SAVE & STATS ==================
-function saveNumbers() {
-    localStorage.setItem("numbers_data", JSON.stringify(numbersData));
+// Log Function
+function addLog(message, type = "info") {
+    const time = new Date().toLocaleTimeString();
+    logDiv.innerHTML += `<br>[${time}] <span style="color:${type==='error'?'#ff5252':type==='success'?'#00ff9d':'#00f0ff'}">${message}</span>`;
+    logDiv.scrollTop = logDiv.scrollHeight;
 }
 
+// Global Sync
+window.addEventListener('storage', (e) => {
+    if (e.key === "panel_state") {
+        location.reload();
+    }
+});
+
+// Save & Stats
+function saveNumbers() { localStorage.setItem("numbers_data", JSON.stringify(numbersData)); }
 function updateStats() {
     document.getElementById("total").textContent = numbersData.length;
     document.getElementById("success").textContent = numbersData.filter(n => n.otp).length;
     document.getElementById("active").textContent = numbersData.filter(n => !n.permanent).length;
 }
 
-// ================== SOUND ==================
-function playSound(type) {
-    const url = type === "otp" 
-        ? "https://freesound.org/data/previews/387/387186_7258994-lq.mp3"
-        : "https://freesound.org/data/previews/66/66929_931655-lq.mp3";
-    new Audio(url).play().catch(()=>{});
-}
-
-// ================== CREATE BOX ==================
+// Create Box (simplified)
 function createBox(data) {
-    const num = data.phone.slice(2);
+    const num = data.phone ? data.phone.slice(2) : "Unknown";
     const box = document.createElement("div");
     box.className = `numbox ${data.permanent ? 'permanent' : ''}`;
-
-    const apiUsed = data.api || "api1";
-
     box.innerHTML = `
-        <div class="top-row">
+        <div style="display:flex; gap:15px; align-items:center; margin-bottom:12px;">
             <div class="phone10">${num}</div>
-            <button class="copy-number-btn">Copy</button>
+            <button>Copy</button>
         </div>
         <div class="otp-area">
-            <div class="otp ${data.otp ? 'success' : ''}">
-                ${data.otp || "Waiting for OTP..."}
-            </div>
-            <button class="copy-otp-btn">Copy OTP</button>
+            <div class="otp ${data.otp ? 'success' : ''}">${data.otp || "Waiting..."}</div>
+            <button>Copy OTP</button>
         </div>
-        <div class="timer">${data.permanent ? "PERMANENT ✓" : "15:00"}</div>
-        <div class="api-tag ${apiUsed === 'api1' ? 'api1' : 'api2'}">${apiUsed.toUpperCase()}</div>
+        <div class="timer">${data.permanent ? "PERMANENT" : "15:00"}</div>
     `;
-
-    const phoneEl = box.querySelector(".phone10");
-    const copyNumBtn = box.querySelector(".copy-number-btn");
-    const copyOtpBtn = box.querySelector(".copy-otp-btn");
-    const otpEl = box.querySelector(".otp");
-    const timerEl = box.querySelector(".timer");
-
-    const copyNumber = () => navigator.clipboard.writeText(num);
-    phoneEl.onclick = copyNumBtn.onclick = copyNumber;
-    copyOtpBtn.onclick = () => { if (data.otp) navigator.clipboard.writeText(data.otp); };
-
-    if (!data.permanent) start15MinTimer(box, data.startTime, data.id, timerEl);
-    if (!data.otp) startOTPPolling(box, data.id, otpEl, data.api, timerEl);
-
     return box;
 }
 
-// ================== TIMER ==================
-function start15MinTimer(box, startTime, id, timerEl) {
-    const start = startTime || Date.now();
-    const t = setInterval(() => {
-        const elapsed = Math.floor((Date.now() - start) / 1000);
-        let remain = 900 - elapsed;
+async function fetchNumber() {
+    if (!isOn || isPaused) return;
 
-        if (remain <= 0) {
-            clearInterval(t);
-            if (!numbersData.find(x => x.id === id)?.permanent) {
-                box.remove();
-                numbersData = numbersData.filter(x => x.id !== id);
-                saveNumbers();
-                updateStats();
-            }
-            return;
-        }
+    addLog("Trying to fetch number...");
 
-        const m = String(Math.floor(remain / 60)).padStart(2, "0");
-        const s = String(remain % 60).padStart(2, "0");
-        timerEl.textContent = `${m}:${s}`;
-    }, 1000);
-}
-
-// ================== OTP POLLING ==================
-function startOTPPolling(box, id, otpEl, apiUsed, timerEl) {
-    const apiUrl = apiUsed === "api2" ? API2 : API1;
-    const poll = setInterval(async () => {
-        try {
-            const q = new URLSearchParams({ action: "getStatus", id });
-            const r = await fetch(apiUrl + "?" + q);
-            const t = (await r.text()).trim();
-
-            if (t.startsWith("STATUS_OK")) {
-                const code = t.split(":")[1];
-                otpEl.textContent = code;
-                otpEl.classList.add("success");
-                navigator.clipboard.writeText(code);
-                playSound("otp");
-
-                const item = numbersData.find(x => x.id === id);
-                if (item) {
-                    item.otp = code;
-                    item.permanent = true;
-                    saveNumbers();
-                }
-
-                if (box.longTimer) clearInterval(box.longTimer);
-                timerEl.textContent = "PERMANENT ✓";
-                box.classList.add("permanent");
-                updateStats();
-                clearInterval(poll);
-            }
-        } catch (e) {}
-    }, 2000);
-}
-
-// ================== FETCH NUMBER ==================
-async function fetchFromAPI(apiUrl, apiName) {
     try {
-        const params = new URLSearchParams({
-            action: "getNumber",
-            service: SERVICE,
-            country: COUNTRY,
-            maxPrice: MAX_PRICE
-        });
-        const res = await fetch(apiUrl + "?" + params);
-        const text = (await res.text()).trim();
+        // Try API1
+        let res = await fetch(API1 + `?action=getNumber&service=${SERVICE}&country=${COUNTRY}&maxPrice=${MAX_PRICE}`);
+        let text = await res.text();
+        addLog("API1 Response: " + text.substring(0, 100), "info");
 
         if (text.startsWith("ACCESS_NUMBER")) {
             const [, id, phone] = text.split(":");
-            if (numbersData.some(x => x.id === id)) return null;
-            return { id, phone, otp: null, startTime: Date.now(), api: apiName, permanent: false };
+            const newItem = { id, phone, otp: null, startTime: Date.now(), api: "api1", permanent: false };
+            numbersData.unshift(newItem);
+            saveNumbers();
+            document.getElementById("numbers").prepend(createBox(newItem));
+            updateStats();
+            addLog("✅ New Number Received!", "success");
+            return;
         }
-    } catch (e) {}
-    return null;
-}
 
-async function fetchNumber() {
-    if (!isOn || isPaused || requestRunning) return;
-    requestRunning = true;
+        // Try API2
+        res = await fetch(API2 + `?action=getNumber&service=${SERVICE}&country=${COUNTRY}&maxPrice=${MAX_PRICE}`);
+        text = await res.text();
+        addLog("API2 Response: " + text.substring(0, 100), "info");
 
-    let item = await fetchFromAPI(API1, "api1");
-    if (!item) item = await fetchFromAPI(API2, "api2");
-
-    if (item) {
-        numbersData.unshift(item);
-        saveNumbers();
-        numbersDiv.prepend(createBox(item));
-        playSound("new");
-        updateStats();
+        if (text.startsWith("ACCESS_NUMBER")) {
+            const [, id, phone] = text.split(":");
+            const newItem = { id, phone, otp: null, startTime: Date.now(), api: "api2", permanent: false };
+            numbersData.unshift(newItem);
+            saveNumbers();
+            document.getElementById("numbers").prepend(createBox(newItem));
+            updateStats();
+            addLog("✅ New Number Received from API2!", "success");
+        } else {
+            addLog("No number available right now", "info");
+        }
+    } catch (e) {
+        addLog("Error: " + e.message, "error");
     }
-    requestRunning = false;
 }
 
-// ================== RENDER ==================
-function renderAll() {
-    const term = searchInput.value.trim();
-    numbersDiv.innerHTML = "";
-    numbersData
-        .filter(n => n.phone.includes(term))
-        .forEach(n => numbersDiv.appendChild(createBox(n)));
-}
-
-// ================== BUTTON CONTROLS ==================
+// Button Controls
 toggleBtn.onclick = () => {
     isOn = !isOn;
     localStorage.setItem("panel_state", isOn);
     toggleBtn.textContent = isOn ? "STOP PANEL" : "START PANEL";
     toggleBtn.classList.toggle("off", !isOn);
 
-    if (isOn) start();
-    else clearInterval(interval);
+    if (isOn) {
+        addLog("Panel Started");
+        interval = setInterval(fetchNumber, 800);
+        fetchNumber();
+    } else {
+        addLog("Panel Stopped");
+        clearInterval(interval);
+    }
 };
 
-pauseBtn.onclick = () => {
-    isPaused = !isPaused;
-    pauseBtn.textContent = isPaused ? "RESUME" : "PAUSE";
-};
-
-exportBtn.onclick = () => {
-    let text = "Number\tOTP\tStatus\n";
-    numbersData.forEach(n => {
-        text += `${n.phone.slice(2)}\t${n.otp || "Pending"}\t${n.permanent ? "Permanent" : "Active"}\n`;
-    });
-    const blob = new Blob([text], {type: "text/plain"});
+// Other buttons (export, delete, etc.)
+document.getElementById("exportBtn").onclick = () => {
+    let text = "Number\tOTP\n";
+    numbersData.forEach(n => text += `${n.phone}\t${n.otp||""}\n`);
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `hacker_panel_${new Date().toISOString().slice(0,10)}.txt`;
+    a.href = URL.createObjectURL(new Blob([text]));
+    a.download = "numbers.txt";
     a.click();
 };
 
-deleteAllBtn.onclick = () => {
-    if (confirm("सभी numbers delete कर दें?")) {
+document.getElementById("deleteAllBtn").onclick = () => {
+    if (confirm("Delete All?")) {
         numbersData = [];
         saveNumbers();
-        renderAll();
+        document.getElementById("numbers").innerHTML = "";
         updateStats();
     }
 };
 
-searchInput.oninput = renderAll;
-
-// ================== START FUNCTION ==================
-function start() {
-    fetchNumber();
-    interval = setInterval(fetchNumber, 450);
-}
-
-// ================== INIT ==================
+// Init
 updateStats();
-renderAll();
 if (isOn) {
     toggleBtn.textContent = "STOP PANEL";
     toggleBtn.classList.add("off");
-    start();
+    interval = setInterval(fetchNumber, 800);
+    fetchNumber();
+} else {
+    toggleBtn.textContent = "START PANEL";
 }
 </script>
 </body>
